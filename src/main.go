@@ -140,7 +140,6 @@ func insertRecords(db *sql.DB, tableName string, data *CsvData) (int, error) {
 			query += "?, "
 		}
 		query = strings.TrimSuffix(query, ", ") + ")"
-		log.Println(query)
 
 		// パラメータを設定する
 		args := make([]interface{}, len(record))
