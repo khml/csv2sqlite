@@ -2,6 +2,7 @@ package libc2s
 
 import (
 	"database/sql"
+	"fmt"
 	"io"
 	"log"
 	"strings"
@@ -82,4 +83,36 @@ func InsertRecords(db *sql.DB, tableName string, data *CsvData) (int, error) {
 	}
 
 	return numRecords, nil
+}
+
+func Csv2sqlite(csvFilePath, dbFilePath, tableName string) {
+	// CSVファイルを開き、CSVファイルをパースする
+	println("read csv ...")
+	csvData, err := ReadCsvFile(csvFilePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// SQLiteデータベースに接続する
+	println("connect DB ...")
+	db, err := ConnectDatabase(dbFilePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// テーブルを作成する
+	println("create DB table ...")
+	err = CreateTable(db, tableName, csvData.HeaderRow)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// CSVファイルからレコードを挿入する
+	println("insert records to db ...")
+	numRecords, err := InsertRecords(db, tableName, csvData)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Inserted %d records into %s\n", numRecords, tableName)
 }
