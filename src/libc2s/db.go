@@ -11,13 +11,13 @@ import (
 )
 
 func ConnectDatabase(dbFilename string) (*sql.DB, error) {
-	// SQLiteデータベースに接続する
+	// connect to SQLite DB
 	db, err := sql.Open("sqlite3", dbFilename)
 	if err != nil {
 		return nil, err
 	}
 
-	// 接続を確認する
+	// Check the connection
 	err = db.Ping()
 	if err != nil {
 		db.Close()
@@ -28,7 +28,7 @@ func ConnectDatabase(dbFilename string) (*sql.DB, error) {
 }
 
 func CreateTable(db *sql.DB, tableName string, headerRow []string) error {
-	// SQL文を作成する
+	// generate creat TBL SQL
 	query := "CREATE TABLE IF NOT EXISTS " + tableName + " ("
 	for _, columnName := range headerRow {
 		query += columnName + " TEXT, "
@@ -36,7 +36,7 @@ func CreateTable(db *sql.DB, tableName string, headerRow []string) error {
 	query = strings.TrimSuffix(query, ", ") + ")"
 	log.Println(query)
 
-	// SQL文を実行する
+	// exec SQL
 	_, err := db.Exec(query)
 	if err != nil {
 		return err
@@ -46,11 +46,10 @@ func CreateTable(db *sql.DB, tableName string, headerRow []string) error {
 }
 
 func InsertRecords(db *sql.DB, tableName string, data *CsvData) (int, error) {
-	// 挿入するレコード数を初期化する
+	// counter for record num
 	numRecords := 0
 
-	// レコードを1行ずつ読み込む
-
+	// read records, one line at a time.
 	for {
 		record, err := data.Reader.Read()
 		if err != nil {
@@ -60,20 +59,20 @@ func InsertRecords(db *sql.DB, tableName string, data *CsvData) (int, error) {
 			return numRecords, err
 		}
 
-		// SQL文を作成する
+		// generate insert record SQL
 		query := "INSERT INTO " + tableName + " VALUES ("
 		for range record {
 			query += "?, "
 		}
 		query = strings.TrimSuffix(query, ", ") + ")"
 
-		// パラメータを設定する
+		// set params
 		args := make([]interface{}, len(record))
 		for i, v := range record {
 			args[i] = v
 		}
 
-		// SQL文を実行する
+		// exec insert record SQL
 		_, err = db.Exec(query, args...)
 		if err != nil {
 			return numRecords, err
@@ -86,14 +85,14 @@ func InsertRecords(db *sql.DB, tableName string, data *CsvData) (int, error) {
 }
 
 func Csv2sqlite(csvFilePath, dbFilePath, tableName string) {
-	// CSVファイルを開き、CSVファイルをパースする
+	// read csv
 	println("read csv ...")
-	csvData, err := ReadCsvFile(csvFilePath)
+	csvData, err := ReadCsv(csvFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// SQLiteデータベースに接続する
+	// connect to SQLite DB
 	println("connect DB ...")
 	db, err := ConnectDatabase(dbFilePath)
 	if err != nil {
@@ -101,14 +100,14 @@ func Csv2sqlite(csvFilePath, dbFilePath, tableName string) {
 	}
 	defer db.Close()
 
-	// テーブルを作成する
+	// create TBL
 	println("create DB table ...")
 	err = CreateTable(db, tableName, csvData.HeaderRow)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// CSVファイルからレコードを挿入する
+	// insert records from CSV
 	println("insert records to db ...")
 	numRecords, err := InsertRecords(db, tableName, csvData)
 	if err != nil {
