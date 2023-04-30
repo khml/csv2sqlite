@@ -12,26 +12,26 @@ type CsvData struct {
 	Reader    *csv.Reader
 }
 
-func ReadCsvFile(filename string) (*CsvData, error) {
-	// CSVファイルを開く
-	file, err := os.Open(filename)
+func ReadCsv(pathToCsv string) (*CsvData, error) {
+	// open csv file
+	file, err := os.Open(pathToCsv)
 	if err != nil {
 		return nil, err
 	}
 
-	// CSVリーダーを作成する
+	// spawn csv reader
 	reader := csv.NewReader(file)
 
-	// ヘッダー行を読み込む
+	// read only header row
 	headerRow, err := reader.Read()
 	if err != nil {
 		if err == io.EOF {
-			return nil, fmt.Errorf("CSVファイルが空です")
+			return nil, fmt.Errorf("CSV file (%s) is empty", pathToCsv)
 		}
 		return nil, err
 	}
 
-	// ヘッダー行を設定する
+	// set column num
 	reader.FieldsPerRecord = len(headerRow)
 	reader.ReuseRecord = true
 
