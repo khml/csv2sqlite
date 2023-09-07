@@ -39,8 +39,7 @@ jobs:
         body_path: ""
       env:
         GITHUB_TOKEN: ${{ github.token }}
-    - name: release
-      id: create_release
+    - name: create_release
       uses: softprops/action-gh-release@v1
     - name: upload linux artifact
       uses: actions/upload-release-asset@v1
