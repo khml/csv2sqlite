@@ -28,17 +28,6 @@ jobs:
       run: git show --format='%H' --no-patch
       id: version
 
-    - name: release
-      uses: actions/create-release@v1
-      id: create_release
-      with:
-        draft: false
-        prerelease: false
-        release_name: ${{ steps.version.outputs.version.text }}
-        tag_name: ${{ steps.version.outputs.version.text }}
-        body_path: ""
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
     - name: create_release
       uses: softprops/action-gh-release@v1
     - name: upload linux artifact
