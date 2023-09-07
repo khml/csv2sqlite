@@ -1,11 +1,11 @@
 .PHONY: build-linux build-darwin build-windows build-release-artifacts
 
 build-release-artifacts:
-	make build-linux &&
-	make build-darwin &&
-	make build-windows &&
-	zip csv2sqlite.linux_amd64.zip csv2sqlite_linux_amd64 &&
-	zip csv2sqlite.darwind_arm64.zip csv2sqlite_darwind_arm64 &&
+	make build-linux && \
+	make build-darwin && \
+	make build-windows && \
+	zip csv2sqlite.linux_amd64.zip csv2sqlite_linux_amd64 && \
+	zip csv2sqlite.darwind_arm64.zip csv2sqlite_darwind_arm64 && \
 	zip csv2sqlite.windows_amd64.zip csv2sqlite.exe
 
 build-linux:
