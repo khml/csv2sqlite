@@ -33,6 +33,6 @@ jobs:
       id: create_release
       with:
         tag: ${{ steps.version.outputs.version.text }}
-        artifacts: "./csv2sqlite.linux_amd64.zip,./csv2sqlite.darwind_arm64.zip,./csv2sqlite.windows_amd64.zip"
+        artifacts: "./csv2sqlite.linux_amd64.zip,./csv2sqlite.darwin_arm64.zip,./csv2sqlite.windows_amd64.zip"
       env:
         GITHUB_TOKEN: ${{ github.token }}
