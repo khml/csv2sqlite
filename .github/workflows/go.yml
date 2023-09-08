@@ -24,10 +24,6 @@ jobs:
     - name: build artifacts
       run: make build-release-artifacts
 
-    - name: version
-      run: git show --format='%H' --no-patch
-      id: version
-
     - name: create_release
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
