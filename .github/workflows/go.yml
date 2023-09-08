@@ -34,7 +34,6 @@ jobs:
       with:
         draft: false
         prerelease: false
-        release_name: ${{ steps.version.outputs.version.text }}
         tag_name: ${{ steps.version.outputs.version.text }}
         body_path: ""
       env:
