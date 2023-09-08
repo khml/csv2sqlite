@@ -21,18 +21,16 @@ jobs:
       with:
         go-version: '1.20'
 
-    - name: build artifacts
-      run: make build-release-artifacts
-
     - name: version
       run: git show --format='%H' --no-patch
       id: version
 
     - name: create_release
-      uses: ncipollo/release-action@v1
-      id: create_release
+      uses: "marvinpinto/action-automatic-releases@latest"
       with:
-        tag: "${{ steps.release_tag.outputs.new_tag }}"
-        artifacts: "./csv2sqlite.linux_amd64.zip,./csv2sqlite.darwin_arm64.zip,./csv2sqlite.windows_amd64.zip"
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          LICENSE.txt
