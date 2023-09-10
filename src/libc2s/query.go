@@ -27,5 +27,5 @@ func buildInsertRecordQuery(tableName string, columnNames []string) string {
 	placeHolder := strings.Repeat("?, ", colNum)
 	placeHolder = strings.TrimSuffix(placeHolder, ", ")
 
-	return fmt.Sprintf("INSERT INTO %s ( %s ) VALUES ( %s )", columns, tableName, placeHolder)
+	return fmt.Sprintf("INSERT INTO %s ( %s ) VALUES ( %s )", tableName, columns, placeHolder)
 }
