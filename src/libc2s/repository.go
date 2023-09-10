@@ -19,6 +19,12 @@ func (r Repository) Close() error {
 	return r.db.Close()
 }
 
+func (r Repository) CreateTbl(tblName string, csv *CsvData) error {
+	query := buildCreateTableQuery(tblName, csv.HeaderRow)
+	_, err := r.Exec(query)
+	return err
+}
+
 func (r Repository) Exec(query string) (sql.Result, error) {
 	return r.db.Exec(query)
 }
