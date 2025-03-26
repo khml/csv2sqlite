@@ -3,6 +3,7 @@ package tui
 import (
 	"csv2sqlite/libc2s"
 	"fmt"
+	"os"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -84,6 +85,7 @@ func (app *Csv2SqliteApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					WithFilterSuffix(".sqlite"),
 					WithFilterSuffix(".sqlite3"),
 					WithFilterSuffix(".db"),
+					WithAllowCreateNew(true), // 新規ファイル作成を許可
 				)
 				if err != nil {
 					return app, func() tea.Msg {
@@ -110,6 +112,8 @@ func (app *Csv2SqliteApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if selectedPath != "" {
 				// 選択されたパスをDBパスとして設定
 				app.dbPath = selectedPath
+
+				// 次はフォーム入力へ (ファイルの存在確認は変換処理時に行う)
 
 				// 次はフォーム入力へ
 				form := NewForm("テーブル情報を入力してください")
@@ -143,7 +147,12 @@ func (app *Csv2SqliteApp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// キャンセルされた場合、DBファイル選択に戻る
 				picker, err := NewFilePicker(".",
 					WithTitle("SQLiteファイルを選択または新規ファイル名を入力してください"),
-					WithFilterSuffix(".db"))
+					WithFilterSuffix(".sqlite"),
+					WithFilterSuffix(".sqlite3"),
+					WithFilterSuffix(".db"),
+					WithAllowCreateNew(true), // 新規ファイル作成を許可
+					WithInputPlaceholder("新規DBファイル名（拡張子は自動追加）"),
+				)
 				if err != nil {
 					return app, func() tea.Msg {
 						return ProgressError{Error: err}
@@ -264,8 +273,15 @@ func (app *Csv2SqliteApp) runConversion() {
 		return
 	}
 
+	// DBファイルが新規作成かどうかを確認
+	isNewFile := !fileExists(app.dbPath)
+	dbActionMsg := "既存のデータベースに接続しています"
+	if isNewFile {
+		dbActionMsg = "新規データベースファイルを作成しています"
+	}
+
 	// データベース接続
-	app.updateCh <- ProgressUpdate{Current: 30, Log: fmt.Sprintf("SQLiteデータベース '%s' に接続しています...", app.dbPath)}
+	app.updateCh <- ProgressUpdate{Current: 30, Log: fmt.Sprintf("%s: '%s'", dbActionMsg, app.dbPath)}
 	db, err := libc2s.ConnectRepository(app.dbPath)
 	if err != nil {
 		app.errCh <- fmt.Errorf("データベース接続に失敗しました: %v", err)
@@ -308,11 +324,15 @@ func (app *Csv2SqliteApp) runConversion() {
 
 	// 結果サマリーを設定
 	if app.progress != nil {
+		dbStatus := "既存のデータベース"
+		if isNewFile {
+			dbStatus = "新規作成されたデータベース"
+		}
 		summary := fmt.Sprintf("変換結果サマリー:\n"+
 			"CSVファイル: %s\n"+
-			"SQLiteデータベース: %s\n"+
+			"SQLiteデータベース: %s (%s)\n"+
 			"テーブル名: %s\n"+
-			"挿入レコード数: %d", app.csvPath, app.dbPath, app.tableName, numRecords)
+			"挿入レコード数: %d", app.csvPath, app.dbPath, dbStatus, app.tableName, numRecords)
 		app.progress.SetResult(summary)
 	}
 
@@ -323,13 +343,26 @@ func (app *Csv2SqliteApp) runConversion() {
 // confirmView は確認画面のビューを生成します
 func confirmView(csvPath, dbPath, tableName string) string {
 	title := TitleStyle.Render("設定内容の確認")
+
+	// DBファイルが新規作成かどうかを表示
+	dbStatus := ""
+	if !fileExists(dbPath) {
+		dbStatus = " (新規作成)"
+	}
+
 	section := SectionStyle.Render(fmt.Sprintf(`CSVファイル: %s
-SQLiteファイル: %s
-テーブル名: %s`, csvPath, dbPath, tableName))
+SQLiteファイル: %s%s
+テーブル名: %s`, csvPath, dbPath, dbStatus, tableName))
 
 	guide := SubtextStyle.Render("Enter: 処理開始   Esc: 戻る")
 
 	return fmt.Sprintf("\n%s\n\n%s\n\n%s\n", title, section, guide)
+}
+
+// fileExists はファイルが存在するかどうかを確認します
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
 }
 
 // RunApp はアプリケーションを実行します

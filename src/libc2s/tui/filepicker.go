@@ -8,21 +8,26 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 // FilePicker は単純なファイル選択コンポーネントです
 type FilePicker struct {
-	dir          string        // 現在のディレクトリ
-	files        []fs.DirEntry // ディレクトリ内のファイルとディレクトリ
-	cursor       int           // 選択中のアイテムのインデックス
-	selected     string        // 選択されたファイルパス
-	err          error         // エラー発生時のエラー情報
-	allowDirs    bool          // ディレクトリも選択可能かのフラグ
-	showHidden   bool          // 隠しファイルを表示するかのフラグ
-	height       int           // 表示する行の高さ
-	filterSuffix string        // ファイル拡張子によるフィルター
-	title        string        // ファイルピッカーのタイトル
+	dir              string          // 現在のディレクトリ
+	files            []fs.DirEntry   // ディレクトリ内のファイルとディレクトリ
+	cursor           int             // 選択中のアイテムのインデックス
+	selected         string          // 選択されたファイルパス
+	err              error           // エラー発生時のエラー情報
+	allowDirs        bool            // ディレクトリも選択可能かのフラグ
+	showHidden       bool            // 隠しファイルを表示するかのフラグ
+	height           int             // 表示する行の高さ
+	filterSuffix     string          // ファイル拡張子によるフィルター
+	title            string          // ファイルピッカーのタイトル
+	inputMode        bool            // 新規ファイル名入力モードかどうか
+	input            textinput.Model // テキスト入力コンポーネント
+	allowCreateNew   bool            // 新規ファイル作成を許可するかどうか
+	inputPlaceholder string          // 入力フィールドのプレースホルダー
 }
 
 // NewFilePicker は新しいFilePickerを生成します
@@ -41,19 +46,32 @@ func NewFilePicker(initialDir string, options ...FilePickerOption) (*FilePicker,
 		return nil, err
 	}
 
+	// 入力フィールドの初期化
+	input := textinput.New()
+	input.Placeholder = "新規ファイル名を入力"
+	input.CharLimit = 100
+	input.Width = 40
+
 	fp := &FilePicker{
-		dir:          abs,
-		allowDirs:    false,
-		showHidden:   false,
-		height:       10,
-		filterSuffix: "",
-		title:        "ファイル選択",
+		dir:              abs,
+		allowDirs:        false,
+		showHidden:       false,
+		height:           10,
+		filterSuffix:     "",
+		title:            "ファイル選択",
+		inputMode:        false,
+		input:            input,
+		allowCreateNew:   false,
+		inputPlaceholder: "新規ファイル名を入力",
 	}
 
 	// オプションの適用
 	for _, opt := range options {
 		opt(fp)
 	}
+
+	// 入力フィールドにプレースホルダーを設定
+	fp.input.Placeholder = fp.inputPlaceholder
 
 	// 初期ディレクトリのファイル一覧を読み込む
 	err = fp.loadFiles()
@@ -99,6 +117,20 @@ func WithFilterSuffix(suffix string) FilePickerOption {
 func WithTitle(title string) FilePickerOption {
 	return func(fp *FilePicker) {
 		fp.title = title
+	}
+}
+
+// WithAllowCreateNew は新規ファイル作成を許可するオプションです
+func WithAllowCreateNew(allow bool) FilePickerOption {
+	return func(fp *FilePicker) {
+		fp.allowCreateNew = allow
+	}
+}
+
+// WithInputPlaceholder は入力フィールドのプレースホルダーを設定するオプションです
+func WithInputPlaceholder(placeholder string) FilePickerOption {
+	return func(fp *FilePicker) {
+		fp.inputPlaceholder = placeholder
 	}
 }
 
@@ -176,18 +208,57 @@ func (p parentDirEntry) Info() (fs.FileInfo, error) { return nil, nil }
 
 // Init はBubbleteaのイニシャライザです
 func (fp *FilePicker) Init() tea.Cmd {
-	return nil
+	return textinput.Blink
 }
 
 // Update はBubbleteaの更新関数です
 func (fp *FilePicker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// 入力モード時の処理
+		if fp.inputMode {
+			switch msg.String() {
+			case "esc":
+				// 入力モードをキャンセルして閲覧モードに戻る
+				fp.inputMode = false
+				fp.input.Blur()
+				return fp, nil
+
+			case "enter":
+				// 入力内容を選択確定
+				input := fp.input.Value()
+				if input != "" {
+					// 入力された名前にフィルターの拡張子が含まれていなければ追加
+					if fp.filterSuffix != "" && !strings.HasSuffix(strings.ToLower(input), strings.ToLower(fp.filterSuffix)) {
+						input = input + fp.filterSuffix
+					}
+					fp.selected = filepath.Join(fp.dir, input)
+					return fp, tea.Quit
+				}
+				return fp, nil
+			}
+
+			// その他のキー入力はテキストフィールドに渡す
+			fp.input, cmd = fp.input.Update(msg)
+			return fp, cmd
+		}
+
+		// 閲覧モード時の処理
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			// 選択をキャンセル
 			fp.selected = ""
 			return fp, tea.Quit
+
+		case "n":
+			// 新規ファイル作成モードに切り替え（許可されている場合のみ）
+			if fp.allowCreateNew {
+				fp.inputMode = true
+				fp.input.Focus()
+				return fp, textinput.Blink
+			}
 
 		case "up", "k":
 			if fp.cursor > 0 {
@@ -256,8 +327,20 @@ func (fp *FilePicker) View() string {
 	s.WriteString(TitleStyle.Render(fp.title) + "\n")
 	s.WriteString(SubtextStyle.Render(fmt.Sprintf("現在のディレクトリ: %s", fp.dir)) + "\n\n")
 
+	// 入力モード時は入力フィールドを表示
+	if fp.inputMode {
+		s.WriteString(TextStyle.Render("新規ファイル名を入力してください:") + "\n")
+		s.WriteString(fp.input.View() + "\n\n")
+		s.WriteString(SubtextStyle.Render("Enter: 確定   Esc: キャンセル"))
+		return s.String()
+	}
+
+	// 通常のファイル一覧表示モード
 	if len(fp.files) == 0 {
 		s.WriteString("ファイルが見つかりません\n")
+		if fp.allowCreateNew {
+			s.WriteString(SubtextStyle.Render("n: 新規ファイル作成") + "\n")
+		}
 		return s.String()
 	}
 
@@ -313,7 +396,11 @@ func (fp *FilePicker) View() string {
 
 	// 操作ガイドを表示
 	s.WriteString("\n")
-	s.WriteString(SubtextStyle.Render("↑/↓: 移動   Enter: 選択   Esc: キャンセル"))
+	guideText := "↑/↓: 移動   Enter: 選択   Esc: キャンセル"
+	if fp.allowCreateNew {
+		guideText += "   n: 新規ファイル作成"
+	}
+	s.WriteString(SubtextStyle.Render(guideText))
 
 	return s.String()
 }
